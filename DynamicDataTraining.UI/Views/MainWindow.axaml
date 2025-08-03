@@ -13,6 +13,5 @@
     <Design.DataContext>
          <vm:MainWindowViewModel/>
     </Design.DataContext>
-
-  <views:TableView/>
+  <ContentControl Content="{Binding CurrentViewModel}" />
 </Window>

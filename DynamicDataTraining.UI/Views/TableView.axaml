@@ -3,8 +3,85 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:DynamicDataTraining.ViewModel.ViewModelsFolder"
+             xmlns:dto="using:DynamicDataTraining.ViewModel.Dtos"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="DynamicDataTraining.UI.Views.TableView"
              x:DataType="vm:TableViewModel">
-  Welcome to Avalonia!
+
+  <UserControl.Resources>
+    <!-- Цвет линий DataGrid -->
+    <SolidColorBrush x:Key="DataGrid.GridLinesBrush" Color="Black"/>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*" Margin="10">
+    <!-- Кастомный заголовок -->
+    <Border BorderBrush="Black" BorderThickness="1">
+      <Grid ColumnDefinitions="2.5*,1.2*,1*,1*,1*,1.5*" RowDefinitions="Auto,Auto">
+        <!-- ФИО -->
+        <Border Grid.Row="0" Grid.Column="0" Grid.RowSpan="2"
+                BorderBrush="Black" BorderThickness="1">
+          <TextBlock Text="ФИО студента"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     FontWeight="Bold" Padding="6" TextWrapping="Wrap" TextAlignment="Center"/>
+        </Border>
+        <!-- Группа -->
+        <Border Grid.Row="0" Grid.Column="1" Grid.RowSpan="2"
+                BorderBrush="Black" BorderThickness="1">
+          <TextBlock Text="Группа"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     FontWeight="Bold" Padding="6" TextWrapping="Wrap" TextAlignment="Center"/>
+        </Border>
+        <!-- Пропуски -->
+        <Border Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="4"
+                BorderBrush="Black" BorderThickness="1">
+          <TextBlock Text="Число пропусков занятий за год"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     FontWeight="Bold" Padding="6" TextWrapping="Wrap" TextAlignment="Center"/>
+        </Border>
+        <!-- Вторая строка -->
+        <Border Grid.Row="1" Grid.Column="2" BorderBrush="Black" BorderThickness="1">
+          <TextBlock Text="По болезни"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     FontWeight="Bold" Padding="4" TextWrapping="Wrap" TextAlignment="Center"/>
+        </Border>
+        <Border Grid.Row="1" Grid.Column="3" BorderBrush="Black" BorderThickness="1">
+          <TextBlock Text="По другим причинам"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     FontWeight="Bold" Padding="4" TextWrapping="Wrap" TextAlignment="Center"/>
+        </Border>
+        <Border Grid.Row="1" Grid.Column="4" BorderBrush="Black" BorderThickness="1">
+          <TextBlock Text="Без уважительной причины"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     FontWeight="Bold" Padding="4" TextWrapping="Wrap" TextAlignment="Center"/>
+        </Border>
+        <Border Grid.Row="1" Grid.Column="5" BorderBrush="Black" BorderThickness="1">
+          <TextBlock Text="Итого"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     FontWeight="Bold" Padding="4" TextWrapping="Wrap" TextAlignment="Center"/>
+        </Border>
+      </Grid>
+    </Border>
+
+    <DataGrid Grid.Row="1"
+              ItemsSource="{Binding Students}"
+              AutoGenerateColumns="False"
+              HeadersVisibility="None"
+              GridLinesVisibility="All"
+              BorderThickness="1"
+              BorderBrush="Black">
+      <DataGrid.Columns>
+        <DataGridTextColumn Binding="{Binding FullName}" Width="2.5*"/>
+        <DataGridTextColumn Binding="{Binding GroupNumber}" Width="1.2*"/>
+        <DataGridTextColumn Binding="{Binding JustifiedAbsencesCount}" Width="1*"/>
+        <DataGridTextColumn Binding="{Binding UnjustifiedAbsencesCount}" Width="1*"/>
+        <DataGridTextColumn Binding="{Binding OtherAbsencesCount}" Width="1*"/>
+        <DataGridTextColumn Binding="{Binding AllAbsencesCount}" Width="1.5*"/>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
 </UserControl>
