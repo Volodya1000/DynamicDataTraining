@@ -1,10 +1,26 @@
 ﻿using DynamicDataTraining.ViewModel.Dtos;
 using System.Collections.ObjectModel;
+using ReactiveUI.Fody.Helpers;
+using ReactiveUI;
 
 namespace DynamicDataTraining.ViewModel.ViewModelsFolder;
 
 public class TableViewModel:ViewModelBase
 {
+    private int _pageSize=10;
+
+    public int PageSize 
+    {  
+        get => _pageSize;
+        set
+        {
+            var newValue = value < 1 ? 1 : value;
+            if (_pageSize == newValue)
+                return;
+            this.RaiseAndSetIfChanged(ref _pageSize, newValue);
+        }
+    } 
+
     public ReadOnlyObservableCollection<StudentDto> Students { get; init; }
 
     public TableViewModel()
@@ -25,4 +41,21 @@ public class TableViewModel:ViewModelBase
 
         Students = new ReadOnlyObservableCollection<StudentDto>(studentList);
     }
+
+
+    public void FirstPage()
+    {
+
+    }
+
+    public void LastPage()
+    {
+
+    }
+
+    public void PreviousPage() { }
+
+    public void NextPage() { }
+
+
 }
