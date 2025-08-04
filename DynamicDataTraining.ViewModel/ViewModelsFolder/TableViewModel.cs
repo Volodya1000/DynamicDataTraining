@@ -98,8 +98,11 @@ public class TableViewModel:ViewModelBase, IDisposable
         _filtersSource.AddRange(new IFilterViewModel[]
         {
             new LastNameFilterViewModel(),
-            //new GroupFilterViewModel(),
-            //new AbsencesRangeFilterViewModel()
+            new AbsencesRangeFilterViewModel("Пропуски по уважительной причине", s => s.JustifiedAbsencesCount),
+            new AbsencesRangeFilterViewModel("Пропуски по не уважительной причине", s => s.UnjustifiedAbsencesCount),
+            new AbsencesRangeFilterViewModel("Пропуски по другой причине", s => s.OtherAbsencesCount),
+            new AbsencesRangeFilterViewModel("Всего пропусков", s => s.AllAbsencesCount),
+
         });
 
         var combinedFilter = _filtersSource.Connect()

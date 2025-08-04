@@ -13,7 +13,7 @@ public class AbsencesRangeFilterViewModel : ViewModelBase, IFilterViewModel
     [Reactive] public int? Min { get; set; }
     [Reactive] public int? Max { get; set; }
 
-    public bool IsEnabled { get; set; }= true;
+    [Reactive] public bool IsEnabled { get; set; }= true;
 
     public IObservable<Func<StudentDto, bool>> FilterFunc { get; }
 
