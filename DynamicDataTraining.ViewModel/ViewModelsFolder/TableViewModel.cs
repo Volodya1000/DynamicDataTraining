@@ -89,46 +89,55 @@ public class TableViewModel:ViewModelBase, IDisposable
     public TableViewModel()
     {
         _filtersSource.Connect()
-         .ObserveOn(RxApp.MainThreadScheduler) // UI-поток
-         .Bind(out var filtersReadOnly)
-         .Subscribe();
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Bind(out var filtersReadOnly)
+            .Subscribe()
+            .DisposeWith(_disposables);
 
         Filters = filtersReadOnly;
 
         _filtersSource.AddRange(new IFilterViewModel[]
         {
-            new LastNameFilterViewModel(),
-            new AbsencesRangeFilterViewModel("Пропуски по уважительной причине", s => s.JustifiedAbsencesCount),
-            new AbsencesRangeFilterViewModel("Пропуски по не уважительной причине", s => s.UnjustifiedAbsencesCount),
-            new AbsencesRangeFilterViewModel("Пропуски по другой причине", s => s.OtherAbsencesCount),
-            new AbsencesRangeFilterViewModel("Всего пропусков", s => s.AllAbsencesCount),
-
+        new LastNameFilterViewModel(),
+        new AbsencesRangeFilterViewModel("Пропуски по уважительной причине", s => s.JustifiedAbsencesCount),
+        new AbsencesRangeFilterViewModel("Пропуски по не уважительной причине", s => s.UnjustifiedAbsencesCount),
+        new AbsencesRangeFilterViewModel("Пропуски по другой причине", s => s.OtherAbsencesCount),
+        new AbsencesRangeFilterViewModel("Всего пропусков", s => s.AllAbsencesCount),
         });
 
         var combinedFilter = _filtersSource.Connect()
-      .AutoRefresh(f => f.IsEnabled)
-      .AutoRefresh(f => f.FilterKey)
-      .ToCollection()
-      .Select(list =>
-      {
-          var active = list.Where(f => f.IsEnabled).ToList();
+            .AutoRefresh(f => f.IsEnabled)
+            .AutoRefresh(f => f.FilterKey)
+            .ToCollection()
+            .Select(list =>
+            {
+                var active = list.Where(f => f.IsEnabled).ToList();
+                if (active.Count == 0)
+                    return Observable.Return<Func<StudentDto, bool>>(_ => true);
 
-          if (active.Count == 0)
-              return Observable.Return<Func<StudentDto, bool>>(_ => true);
+                var enabledPredicates = active.Select(f =>
+                    f.FilterFunc.Select(predicate =>
+                        new Func<StudentDto, bool>(s => predicate(s)))
+                );
 
-          var enabledPredicates = active.Select(f =>
-              f.FilterFunc.Select(predicate =>
-                  new Func<StudentDto, bool>(s => predicate(s))) 
-          );
+                return enabledPredicates
+                    .CombineLatest()
+                    .Select(funcs => new Func<StudentDto, bool>(s => funcs.All(f => f(s))));
+            })
+            .Switch();
 
-          return enabledPredicates
-              .CombineLatest()
-              .Select(funcs => new Func<StudentDto, bool>(s => funcs.All(f => f(s))));
-      })
-      .Switch();
+        // Создаём поток отфильтрованных студентов
+        var filteredStudents = _studentSource.Connect().Filter(combinedFilter);
+
+        // Создаём поток, который будет возвращать реактивное количество отфильтрованных студентов.
+        // ToCollection() преобразует IChangeSet в IReadOnlyCollection, что позволяет нам получить .Count.
+        var filteredStudentsCount = filteredStudents
+            .ToCollection()
+            .Select(c => c.Count)
+            .StartWith(_studentSource.Count); // начальное значение
 
         combinedFilter
-            .Throttle(TimeSpan.FromMilliseconds(50)) // чтобы не было лишних обновлений при быстром вводе
+            .Throttle(TimeSpan.FromMilliseconds(50))
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(_ =>
             {
@@ -136,10 +145,6 @@ public class TableViewModel:ViewModelBase, IDisposable
             })
             .DisposeWith(_disposables);
 
-
-
-        // Команды перехода активны только если есть хотя бы одна страница
-        // и можно перейти вперёд или назад соответственно
         var canGoFirstOrPrevious = this.WhenAnyValue(
             x => x.CurrentPage,
             x => x.TotalPages,
@@ -152,23 +157,19 @@ public class TableViewModel:ViewModelBase, IDisposable
             (page, total) => page < total && total > 0
         );
 
-        //Автоматический переход на первую страницу при изменении PageSize
         this.WhenAnyValue(x => x.PageSize)
             .Skip(1)
             .Subscribe(_ => CurrentPage = 1)
             .DisposeWith(_disposables);
 
-        // Автоматический пересчёт TotalPages при изменении _studentSource.Count или PageSize
-        _studentSource
-        .CountChanged
-        .CombineLatest(this.WhenAnyValue(x => x.PageSize),
-            (count, pageSize) =>
-                Math.Max(1, (int)Math.Ceiling(count / (double)pageSize))) // минимум 1 страница
-        // Привязываем результат к свойству TotalPages (через ObservableAsPropertyHelper)
-        .ToPropertyEx(this, x => x.TotalPages) 
-        .DisposeWith(_disposables);
+        // TotalPages  зависит от реактивного количества элементов в отфильтрованном списке.
+        filteredStudentsCount
+            .CombineLatest(this.WhenAnyValue(x => x.PageSize),
+                (count, pageSize) =>
+                    Math.Max(1, (int)Math.Ceiling(count / (double)pageSize)))
+            .ToPropertyEx(this, x => x.TotalPages)
+            .DisposeWith(_disposables);
 
-        // Коррекция CurrentPage при изменении TotalPages и PageSize, чтобы не выйти за допустимые границы
         this.WhenAnyValue(x => x.TotalPages, x => x.CurrentPage)
             .Subscribe(tuple =>
             {
@@ -180,22 +181,18 @@ public class TableViewModel:ViewModelBase, IDisposable
             })
             .DisposeWith(_disposables);
 
-        // Создаем поток PageRequest из CurrentPage и PageSize
         var pageRequestObservable = this.WhenAnyValue(x => x.CurrentPage, x => x.PageSize)
-          .Select(tuple =>
-          {
-              var (currentPage, pageSize) = tuple;
-              return new PageRequest(currentPage, pageSize);
-          });
+            .Select(tuple =>
+            {
+                var (currentPage, pageSize) = tuple;
+                return new PageRequest(currentPage, pageSize);
+            });
 
-        // Подключение к исходному списку студентов
-        // Сортировка по имени → пагинация → биндинг к _pagedStudents (ObservableCollection)
-        _studentSource.Connect()
-            .Filter(combinedFilter)  
+        filteredStudents
             .Sort(SortExpressionComparer<StudentDto>.Ascending(s => s.FullName))
-            .Page(pageRequestObservable)  // передаем IObservable<PageRequest>
+            .Page(pageRequestObservable)
             .Bind(out _pagedStudents)
-            .DisposeMany() // удаление объектов при их исключении из списка
+            .DisposeMany()
             .Subscribe()
             .DisposeWith(_disposables);
 
@@ -206,7 +203,6 @@ public class TableViewModel:ViewModelBase, IDisposable
 
         LoadStudents();
     }
-
 
     private void LoadStudents()
     {
