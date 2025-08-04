@@ -4,7 +4,7 @@ using ReactiveUI;
 using DynamicDataTraining.ViewModel.Interfaces;
 using System.Reactive.Linq;
 
-namespace DynamicDataTraining.ViewModel.ViewModelsFolder;
+namespace DynamicDataTraining.ViewModel.ViewModelsFolder.Filters;
 
 public class LastNameFilterViewModel : ViewModelBase, IFilterViewModel
 {

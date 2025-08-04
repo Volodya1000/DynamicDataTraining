@@ -9,6 +9,7 @@ using System.Reactive.Disposables;
 using System;
 using DynamicData.Binding;
 using DynamicDataTraining.ViewModel.Interfaces;
+using DynamicDataTraining.ViewModel.ViewModelsFolder.Filters;
 
 namespace DynamicDataTraining.ViewModel.ViewModelsFolder;
 
