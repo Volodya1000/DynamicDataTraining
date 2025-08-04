@@ -12,7 +12,7 @@
   <UserControl.Resources>
     <!-- Цвет линий DataGrid -->
     <SolidColorBrush x:Key="DataGrid.GridLinesBrush" Color="Black"/>
-  </UserControl.Resources>
+     </UserControl.Resources>
 
   <UserControl.Styles>
     <FluentTheme />
@@ -128,10 +128,14 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate>
               <StackPanel Orientation="Horizontal" Margin="5" Spacing="8">
-                <CheckBox IsChecked="{Binding IsEnabled}" VerticalAlignment="Center"/>
-                <ContentControl Content="{Binding}" />
+                <CheckBox IsChecked="{Binding IsEnabled}" VerticalAlignment="Center" />
+
+                <ContentControl Content="{Binding}"
+                 IsEnabled="{Binding IsEnabled}"/>
+
               </StackPanel>
             </DataTemplate>
+
           </ItemsControl.ItemTemplate>
         </ItemsControl>
       </ScrollViewer>

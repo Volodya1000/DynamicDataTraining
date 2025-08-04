@@ -102,21 +102,26 @@ public class TableViewModel:ViewModelBase, IDisposable
         });
 
         var combinedFilter = _filtersSource.Connect()
-       .AutoRefresh(f => f.IsEnabled)
-       .AutoRefresh(f => f.FilterKey)
-       .ToCollection()
-       .Select(list =>
-       {
-           var active = list.Where(f => f.IsEnabled).ToList();
-           if (!active.Any())
-               return Observable.Return<Func<StudentDto, bool>>(_ => true);
+      .AutoRefresh(f => f.IsEnabled)
+      .AutoRefresh(f => f.FilterKey)
+      .ToCollection()
+      .Select(list =>
+      {
+          var active = list.Where(f => f.IsEnabled).ToList();
 
-           var funcs = active.Select(f => f.FilterFunc).ToList();
-           return funcs
-               .CombineLatest()
-               .Select(preds => new Func<StudentDto, bool>(s => preds.All(p => p(s))));
-       })
-       .Switch();
+          if (active.Count == 0)
+              return Observable.Return<Func<StudentDto, bool>>(_ => true);
+
+          var enabledPredicates = active.Select(f =>
+              f.FilterFunc.Select(predicate =>
+                  new Func<StudentDto, bool>(s => predicate(s))) 
+          );
+
+          return enabledPredicates
+              .CombineLatest()
+              .Select(funcs => new Func<StudentDto, bool>(s => funcs.All(f => f(s))));
+      })
+      .Switch();
 
         combinedFilter
             .Throttle(TimeSpan.FromMilliseconds(50)) // чтобы не было лишних обновлений при быстром вводе

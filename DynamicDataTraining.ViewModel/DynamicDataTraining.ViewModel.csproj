@@ -11,4 +11,8 @@
     <PackageReference Include="ReactiveUI.Fody" Version="19.5.41" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="ViewModelsFolder\FilterViewModels\" />
+  </ItemGroup>
+
 </Project>
