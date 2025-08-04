@@ -27,7 +27,7 @@ public class LastNameFilterViewModel : ViewModelBase, IFilterViewModel
                     return new Func<StudentDto, bool>(_ => true);
 
                 return new Func<StudentDto, bool>(student =>
-                    student.LastName.Contains(lastName, StringComparison.OrdinalIgnoreCase));
+                     student.LastName.StartsWith(lastName, StringComparison.OrdinalIgnoreCase));
             });
     }
 }

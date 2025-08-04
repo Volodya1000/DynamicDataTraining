@@ -22,7 +22,8 @@ public class TableViewModel:ViewModelBase, IDisposable
 
     public ReadOnlyObservableCollection<StudentDto> Students => _pagedStudents;
 
-    public SourceList<IFilterViewModel> Filters { get; } = new SourceList<IFilterViewModel>();
+    private readonly SourceList<IFilterViewModel> _filtersSource = new();
+    public ReadOnlyObservableCollection<IFilterViewModel> Filters { get; }
 
     private int _pageSize = 5;
 
@@ -86,32 +87,45 @@ public class TableViewModel:ViewModelBase, IDisposable
 
     public TableViewModel()
     {
-        Filters.AddRange(new IFilterViewModel[]
+        _filtersSource.Connect()
+         .ObserveOn(RxApp.MainThreadScheduler) // UI-поток
+         .Bind(out var filtersReadOnly)
+         .Subscribe();
+
+        Filters = filtersReadOnly;
+
+        _filtersSource.AddRange(new IFilterViewModel[]
         {
             new LastNameFilterViewModel(),
             //new GroupFilterViewModel(),
             //new AbsencesRangeFilterViewModel()
         });
 
-        var combinedFilter = Filters.Connect()
-      .AutoRefresh(f => f.IsEnabled)
-      .AutoRefresh(f => f.FilterKey)
-      .ToCollection()
-      .Select(filters =>
-      {
-          var activeFilters = filters.Where(f => f.IsEnabled).ToList();
-          if (activeFilters.Count == 0)
-              return Observable.Return<Func<StudentDto, bool>>(_ => true);
+        var combinedFilter = _filtersSource.Connect()
+       .AutoRefresh(f => f.IsEnabled)
+       .AutoRefresh(f => f.FilterKey)
+       .ToCollection()
+       .Select(list =>
+       {
+           var active = list.Where(f => f.IsEnabled).ToList();
+           if (!active.Any())
+               return Observable.Return<Func<StudentDto, bool>>(_ => true);
 
-          var filterStreams = activeFilters.Select(f => f.FilterFunc).ToList();
+           var funcs = active.Select(f => f.FilterFunc).ToList();
+           return funcs
+               .CombineLatest()
+               .Select(preds => new Func<StudentDto, bool>(s => preds.All(p => p(s))));
+       })
+       .Switch();
 
-          return filterStreams
-              .CombineLatest()
-              .Select(predicates =>
-                  new Func<StudentDto, bool>(student =>
-                      predicates.All(pred => pred(student))));
-      })
-      .Switch();
+        combinedFilter
+            .Throttle(TimeSpan.FromMilliseconds(50)) // чтобы не было лишних обновлений при быстром вводе
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(_ =>
+            {
+                CurrentPage = 1;
+            })
+            .DisposeWith(_disposables);
 
 
 
@@ -165,21 +179,10 @@ public class TableViewModel:ViewModelBase, IDisposable
               return new PageRequest(currentPage, pageSize);
           });
 
-
-        /*
-         
-        var currentFilter = this.WhenAnyValue(x => x.SelectedTab)
-    .Select(tab => tab.FilterFunc)         // IObservable<IObservable<Func<...>>>
-    .Switch();     
-
-         * */
-
-
-
         // Подключение к исходному списку студентов
         // Сортировка по имени → пагинация → биндинг к _pagedStudents (ObservableCollection)
         _studentSource.Connect()
-            //.Filter(currentFilter)  
+            .Filter(combinedFilter)  
             .Sort(SortExpressionComparer<StudentDto>.Ascending(s => s.FullName))
             .Page(pageRequestObservable)  // передаем IObservable<PageRequest>
             .Bind(out _pagedStudents)
@@ -194,6 +197,7 @@ public class TableViewModel:ViewModelBase, IDisposable
 
         LoadStudents();
     }
+
 
     private void LoadStudents()
     {
