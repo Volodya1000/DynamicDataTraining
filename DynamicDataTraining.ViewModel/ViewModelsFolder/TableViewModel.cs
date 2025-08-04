@@ -22,13 +22,38 @@ public class TableViewModel:ViewModelBase, IDisposable
     public ReadOnlyObservableCollection<StudentDto> Students => _pagedStudents;
 
     private int _pageSize = 5;
+
     public int PageSize
     {
         get => _pageSize;
-        set
+        private set
         {
             var corrected = Math.Max(1, value);
             this.RaiseAndSetIfChanged(ref _pageSize, corrected);
+        }
+    }
+
+    //нужно поскольку используется NumericUpDown и пользователь может полностью удалить число
+    private int? _pageSizeNullable;
+    public int? PageSizeNullable
+    {
+        get => _pageSizeNullable ?? _pageSize; // показываем либо последнее введённое, либо текущее валидное
+
+        set
+        {
+            if (value == null)
+            {
+                _pageSizeNullable = null;
+                this.RaisePropertyChanged(nameof(PageSizeNullable));
+                return; // временно пустое поле, не меняем PageSize
+            }
+
+            if (value < 1)
+                value = 1;
+
+            _pageSizeNullable = value;
+            PageSize = value.Value; // обновляем валидное значение
+            this.RaisePropertyChanged(nameof(PageSizeNullable));
         }
     }
 
@@ -72,6 +97,11 @@ public class TableViewModel:ViewModelBase, IDisposable
             (page, total) => page < total && total > 0
         );
 
+        //Автоматический переход на первую страницу при изменении PageSize
+        this.WhenAnyValue(x => x.PageSize)
+            .Skip(1)
+            .Subscribe(_ => CurrentPage = 1)
+            .DisposeWith(_disposables);
 
         // Автоматический пересчёт TotalPages при изменении _studentSource.Count или PageSize
         _studentSource
@@ -79,7 +109,8 @@ public class TableViewModel:ViewModelBase, IDisposable
         .CombineLatest(this.WhenAnyValue(x => x.PageSize),
             (count, pageSize) =>
                 Math.Max(1, (int)Math.Ceiling(count / (double)pageSize))) // минимум 1 страница
-        .ToPropertyEx(this, x => x.TotalPages)
+        // Привязываем результат к свойству TotalPages (через ObservableAsPropertyHelper)
+        .ToPropertyEx(this, x => x.TotalPages) 
         .DisposeWith(_disposables);
 
         // Коррекция CurrentPage при изменении TotalPages и PageSize, чтобы не выйти за допустимые границы
