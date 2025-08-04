@@ -11,9 +11,7 @@
 
   <UserControl.Resources>
     <!-- Цвет линий DataGrid -->
-    <SolidColorBrush x:Key="DataGrid.GridLinesBrush" Color="Black"/>
-
-    <converters:NullableIntToIntConverter x:Key="NullableIntToIntConverter"/>
+    <SolidColorBrush x:Key="DataGrid.GridLinesBrush" Color="Black"/>   
   </UserControl.Resources>
 
   <UserControl.Styles>

@@ -8,6 +8,7 @@ using System.Reactive.Linq;
 using System.Reactive.Disposables;
 using System;
 using DynamicData.Binding;
+using DynamicDataTraining.ViewModel.Interfaces;
 
 namespace DynamicDataTraining.ViewModel.ViewModelsFolder;
 
@@ -20,6 +21,8 @@ public class TableViewModel:ViewModelBase, IDisposable
     private readonly ReadOnlyObservableCollection<StudentDto> _pagedStudents;
 
     public ReadOnlyObservableCollection<StudentDto> Students => _pagedStudents;
+
+    public SourceList<IFilterViewModel> Filters { get; } = new SourceList<IFilterViewModel>();
 
     private int _pageSize = 5;
 
@@ -83,6 +86,35 @@ public class TableViewModel:ViewModelBase, IDisposable
 
     public TableViewModel()
     {
+        Filters.AddRange(new IFilterViewModel[]
+        {
+            new LastNameFilterViewModel(),
+            //new GroupFilterViewModel(),
+            //new AbsencesRangeFilterViewModel()
+        });
+
+        var combinedFilter = Filters.Connect()
+      .AutoRefresh(f => f.IsEnabled)
+      .AutoRefresh(f => f.FilterKey)
+      .ToCollection()
+      .Select(filters =>
+      {
+          var activeFilters = filters.Where(f => f.IsEnabled).ToList();
+          if (activeFilters.Count == 0)
+              return Observable.Return<Func<StudentDto, bool>>(_ => true);
+
+          var filterStreams = activeFilters.Select(f => f.FilterFunc).ToList();
+
+          return filterStreams
+              .CombineLatest()
+              .Select(predicates =>
+                  new Func<StudentDto, bool>(student =>
+                      predicates.All(pred => pred(student))));
+      })
+      .Switch();
+
+
+
         // Команды перехода активны только если есть хотя бы одна страница
         // и можно перейти вперёд или назад соответственно
         var canGoFirstOrPrevious = this.WhenAnyValue(
@@ -133,9 +165,21 @@ public class TableViewModel:ViewModelBase, IDisposable
               return new PageRequest(currentPage, pageSize);
           });
 
+
+        /*
+         
+        var currentFilter = this.WhenAnyValue(x => x.SelectedTab)
+    .Select(tab => tab.FilterFunc)         // IObservable<IObservable<Func<...>>>
+    .Switch();     
+
+         * */
+
+
+
         // Подключение к исходному списку студентов
         // Сортировка по имени → пагинация → биндинг к _pagedStudents (ObservableCollection)
         _studentSource.Connect()
+            //.Filter(currentFilter)  
             .Sort(SortExpressionComparer<StudentDto>.Ascending(s => s.FullName))
             .Page(pageRequestObservable)  // передаем IObservable<PageRequest>
             .Bind(out _pagedStudents)
